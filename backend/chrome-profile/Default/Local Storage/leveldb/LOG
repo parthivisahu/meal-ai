@@ -1,0 +1,15 @@
+2026/02/11-11:41:05.502 7dc0 Reusing MANIFEST C:\Users\Parthivi Sahu\Meal-AI\backend\chrome-profile\Default\Local Storage\leveldb/MANIFEST-000001
+2026/02/11-11:41:05.514 7dc0 Recovering log #52
+2026/02/11-11:41:05.520 7dc0 Reusing old log C:\Users\Parthivi Sahu\Meal-AI\backend\chrome-profile\Default\Local Storage\leveldb/000052.log 
+2026/02/11-11:46:05.748 4024 Level-0 table #56: started
+2026/02/11-11:46:05.753 4024 Level-0 table #56: 17878 bytes OK
+2026/02/11-11:46:05.755 4024 Delete type=0 #52
+2026/02/11-11:46:05.755 4024 Compacting 4@0 + 1@1 files
+2026/02/11-11:46:05.768 4024 Generated table #57@0: 64 keys, 220608 bytes
+2026/02/11-11:46:05.768 4024 Compacted 4@0 + 1@1 files => 220608 bytes
+2026/02/11-11:46:05.769 4024 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/02/11-11:46:05.770 4024 Delete type=2 #45
+2026/02/11-11:46:05.770 4024 Delete type=2 #48
+2026/02/11-11:46:05.770 4024 Delete type=2 #50
+2026/02/11-11:46:05.770 4024 Delete type=2 #53
+2026/02/11-11:46:05.770 4024 Delete type=2 #56
