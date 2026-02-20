@@ -289,6 +289,7 @@ export class CartAutomation {
           if (isProduction) {
               // Playwright style waiting
               if (this.platform === 'blinkit') {
+                  // Use a more robust selector for waiting
                   await this.page.waitForSelector('div[class*="AddToCart"], a[href*="/prn/"]', { timeout: 8000 });
               } else if (this.platform === 'zepto') {
                   await this.page.waitForSelector('[data-testid="product-card"], [data-testid="product-card-name"]', { timeout: 8000 });
@@ -350,7 +351,8 @@ export class CartAutomation {
           const isProductionLocal = isProduction; // Capture for inner scope
           const getBlinkitAddButton = async () => {
               if (isProductionLocal) {
-                  const btn = this.page.locator('div[class*="AddToCart"], text=ADD').first();
+                  // Playwright: use a cleaner comma-separated selector without nested quotes
+                  const btn = this.page.locator('div[class*="AddToCart"], :text("ADD")').first();
                   return (await btn.count()) > 0 ? btn : null;
               }
               let btn = await this.page.$('div[class*="AddToCart"]');
