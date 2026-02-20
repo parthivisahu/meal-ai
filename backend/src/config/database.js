@@ -5,26 +5,23 @@ dotenv.config();
 
 const mysqlUrl = process.env.MYSQL_URL || process.env.DATABASE_URL;
 
-const pool = mysqlUrl
-  ? mysql.createPool({
-      uri: mysqlUrl,
-      ssl: {
-        rejectUnauthorized: false
-      }
-    })
-  : mysql.createPool({
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME || 'meal_planner_db',
-      port: process.env.DB_PORT || 3306,
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
-      ssl: {
-        rejectUnauthorized: false
-      }
-    });
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME || 'meal_planner_db',
+  port: parseInt(process.env.DB_PORT) || 3306,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  ssl: {
+    rejectUnauthorized: false
+  }
+};
+
+console.log(`📡 Attempting to connect to DB at ${dbConfig.host}:${dbConfig.port}...`);
+
+const pool = mysql.createPool(dbConfig);
 
 // Test the connection
 pool.getConnection()
