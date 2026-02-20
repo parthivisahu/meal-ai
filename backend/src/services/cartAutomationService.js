@@ -175,8 +175,10 @@ export class CartAutomation {
   async initialize() {
     console.log(`[Cart] Initializing browser for ${this.platform}...`);
     
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
+
     const launchOptions = {
-      headless: false,
+      headless: isProduction ? true : false,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -184,6 +186,10 @@ export class CartAutomation {
         '--window-size=1920,1080'
       ]
     };
+
+    if (isProduction) {
+      console.log('[Cart] Production detected: Running in HEADLESS mode.');
+    }
 
     try {
         this.browser = await puppeteer.launch({
