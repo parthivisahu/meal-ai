@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { chromium } from 'playwright';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -177,63 +178,50 @@ export class CartAutomation {
     
     const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
 
-    const launchOptions = {
-      headless: isProduction ? 'new' : false, // Use 'new' for better compatibility in production
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--window-size=1920,1080'
-      ]
-    };
-
-    // On Render, we must explicitly point to the installed Chrome binary
-    if (isProduction) {
-      console.log('[Cart] Production detected: Running in HEADLESS mode.');
-      // Common paths on Render for Chrome installation via `npx puppeteer browsers install chrome`
-      const possiblePaths = [
-        '/opt/render/.cache/puppeteer/chrome/linux-133.0.6943.126/chrome-linux64/chrome',
-        '/opt/render/.cache/puppeteer/chrome/linux-144.0.7559.96/chrome-linux64/chrome',
-        process.env.PUPPETEER_EXECUTABLE_PATH
-      ];
-      
-      for (const p of possiblePaths) {
-        if (p && fs.existsSync(p)) {
-          console.log(`[Cart] Found Chrome binary at: ${p}`);
-          launchOptions.executablePath = p;
-          break;
-        }
-      }
-    }
-
     try {
-        this.browser = await puppeteer.launch({
-          ...launchOptions,
-          userDataDir: USER_DATA_DIR
-        });
-        console.log('[Cart] Browser launched with persistent profile.');
-    } catch (err) {
-        console.warn('[Cart] Primary profile locked. Retrying with temporary profile...');
-        try {
-          // Fallback: Launch without persistent profile (temporary one)
-          this.browser = await puppeteer.launch(launchOptions);
-          console.log('[Cart] Browser launched with temporary profile.');
-        } catch (retryErr) {
-          console.error('[Cart] Fatal browser launch error:', retryErr.message);
-          throw new Error(`Failed to launch browser: ${retryErr.message}`);
+        if (isProduction) {
+            console.log('[Cart] Production detected: Using Playwright (headless).');
+            this.browser = await chromium.launch({
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            this.context = await this.browser.newContext({
+                viewport: { width: 1920, height: 1080 },
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            });
+            this.page = await this.context.newPage();
+        } else {
+            console.log('[Cart] Local detected: Using Puppeteer (headed).');
+            this.browser = await puppeteer.launch({
+                headless: false,
+                userDataDir: USER_DATA_DIR,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-blink-features=AutomationControlled',
+                    '--window-size=1920,1080'
+                ]
+            });
+            this.page = await this.browser.newPage();
+            await this.page.setViewport({ width: 1920, height: 1080 });
+            await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         }
+    } catch (err) {
+        console.error('[Cart] Fatal browser launch error:', err.message);
+        throw err;
     }
     
     activeBrowser = this.browser;
 
-    this.page = await this.browser.newPage();
-    await this.page.setViewport({ width: 1920, height: 1080 });
-    
-    await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    
     try {
-      const context = this.browser.defaultBrowserContext();
-      await context.overridePermissions(this.config.baseUrl, ['geolocation', 'notifications']);
+      if (this.page.context().overridePermissions) {
+          // Playwright style
+          await this.page.context().overridePermissions(this.config.baseUrl, ['geolocation', 'notifications']);
+      } else {
+          // Puppeteer style
+          const context = this.browser.defaultBrowserContext();
+          await context.overridePermissions(this.config.baseUrl, ['geolocation', 'notifications']);
+      }
     } catch (e) {
       console.warn('[Cart] Failed to set browser permissions:', e.message);
     }
