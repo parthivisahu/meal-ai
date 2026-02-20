@@ -178,7 +178,7 @@ export class CartAutomation {
     const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
 
     const launchOptions = {
-      headless: isProduction ? true : false,
+      headless: isProduction ? 'new' : false, // Use 'new' for better compatibility in production
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -187,8 +187,23 @@ export class CartAutomation {
       ]
     };
 
+    // On Render, we must explicitly point to the installed Chrome binary
     if (isProduction) {
       console.log('[Cart] Production detected: Running in HEADLESS mode.');
+      // Common paths on Render for Chrome installation via `npx puppeteer browsers install chrome`
+      const possiblePaths = [
+        '/opt/render/.cache/puppeteer/chrome/linux-133.0.6943.126/chrome-linux64/chrome',
+        '/opt/render/.cache/puppeteer/chrome/linux-144.0.7559.96/chrome-linux64/chrome',
+        process.env.PUPPETEER_EXECUTABLE_PATH
+      ];
+      
+      for (const p of possiblePaths) {
+        if (p && fs.existsSync(p)) {
+          console.log(`[Cart] Found Chrome binary at: ${p}`);
+          launchOptions.executablePath = p;
+          break;
+        }
+      }
     }
 
     try {
