@@ -175,21 +175,32 @@ export class CartAutomation {
   async initialize() {
     console.log(`[Cart] Initializing browser for ${this.platform}...`);
     
+    const launchOptions = {
+      headless: false,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled',
+        '--window-size=1920,1080'
+      ]
+    };
+
     try {
         this.browser = await puppeteer.launch({
-          headless: false,
-          userDataDir: USER_DATA_DIR, 
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-blink-features=AutomationControlled',
-            '--window-size=1920,1080'
-          ]
+          ...launchOptions,
+          userDataDir: USER_DATA_DIR
         });
+        console.log('[Cart] Browser launched with persistent profile.');
     } catch (err) {
-        console.warn('[Cart] Profile locked or browser running.');
-        console.warn('[Cart] Please close all Chrome windows and retry.');
-        throw new Error('Chrome profile locked. Close all Chrome windows and retry.');
+        console.warn('[Cart] Primary profile locked. Retrying with temporary profile...');
+        try {
+          // Fallback: Launch without persistent profile (temporary one)
+          this.browser = await puppeteer.launch(launchOptions);
+          console.log('[Cart] Browser launched with temporary profile.');
+        } catch (retryErr) {
+          console.error('[Cart] Fatal browser launch error:', retryErr.message);
+          throw new Error(`Failed to launch browser: ${retryErr.message}`);
+        }
     }
     
     activeBrowser = this.browser;
