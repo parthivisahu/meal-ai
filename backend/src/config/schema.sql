@@ -1,7 +1,3 @@
--- Create Database
-CREATE DATABASE IF NOT EXISTS meal_planner_db;
-USE meal_planner_db;
-
 -- Users Table
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,

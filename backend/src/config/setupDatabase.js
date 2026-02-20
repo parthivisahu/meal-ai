@@ -19,7 +19,11 @@ async function setupDatabase() {
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD,
       port: process.env.DB_PORT || 3306,
-      multipleStatements: true
+      database: process.env.DB_NAME || 'defaultdb',
+      multipleStatements: true,
+      ssl: {
+        rejectUnauthorized: false
+      }
     });
 
     console.log('📡 Connected to MySQL server');

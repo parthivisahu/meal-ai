@@ -43,15 +43,18 @@ const getCached = (key) => {
   // 1. Try Exact Match
   let cached = priceCache.get(key);
   
+  if (cached) {
+    console.log(`[Cache] Exact hit for "${key}": isEstimate=${cached.value.isEstimate}, price=${cached.value.price}`);
+  }
+
   // 2. Try Partial/Fuzzy Match if exact fails
   if (!cached) {
     const [platform, itemName] = key.split(':');
     if (itemName && itemName.length > 2) {
       // Look for any key in the cache that CONTAINS the requested item name
-      // e.g., Request: "milk" -> Matches: "blinkit:amul taaza milk"
       for (const [cacheKey, entry] of priceCache.entries()) {
         if (cacheKey.startsWith(platform) && cacheKey.includes(itemName)) {
-          console.log(`[Cache] Fuzzy Match: "${itemName}" matched with "${cacheKey}"`);
+          console.log(`[Cache] Fuzzy Match: Requested "${itemName}" found in "${cacheKey}" (isEstimate=${entry.value.isEstimate})`);
           cached = entry;
           break;
         }
@@ -62,6 +65,7 @@ const getCached = (key) => {
   if (!cached) return null;
   
   if (Date.now() - cached.time > CACHE_TTL) {
+    console.log(`[Cache] Expired: "${key}"`);
     priceCache.delete(key);
     saveCacheToDisk();
     return null;
@@ -75,108 +79,135 @@ const setCache = (key, value) => {
 };
 
 export const cleanItemName = (itemName) => {
-  return itemName
+  const normalized = itemName
     .replace(/\b\d+(\.\d+)?\s*(kg|g|l|ml|gm|litre|liter)\b/gi, '')
-    .replace(/\b(Aashirvaad|Fortune|Tata|India Gate|Daawat|Amul|Nestle|Britannia|Haldiram|MDH|Everest|Fresho|Patanjali)\b/gi, '')
+    .replace(
+      /\b(Aashirvaad|Aashirvad|Aashirwad|Ashirvad|Ashirwad|Fortune|Tata|India Gate|Daawat|Amul|Nestle|Britannia|Haldiram|MDH|Everest|Fresho|Patanjali)\b/gi,
+      ''
+    )
     .replace(/[^\w\s]/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
+
+  const tokenMap = {
+    aata: 'atta',
+    aatta: 'atta',
+    atta: 'atta',
+    chawal: 'rice',
+    mirchi: 'chilli',
+    mirch: 'chilli',
+    dahi: 'curd',
+    lahsun: 'garlic',
+    adrakh: 'ginger',
+    dhaniya: 'coriander',
+    namak: 'salt',
+    cheeni: 'sugar'
+  };
+
+  return normalized
+    .split(/\s+/)
+    .map(t => tokenMap[t] || t)
+    .filter(Boolean)
+    .join(' ');
 };
 
 /* ===================== PRICE ESTIMATES (MARKET RATES) ===================== */
 
 const PRICE_ESTIMATES = {
   // Grains & Flours (per kg)
-  'atta': 45, 'wheat': 45, 'flour': 45, 'maida': 40,
-  'rice': 60, 'basmati': 120, 'brown rice': 80, 'idli rice': 55,
-  'rava': 50, 'sooji': 50, 'semolina': 50,
-  'poha': 60, 'beaten rice': 60,
+  'atta': 45, 'wheat': 45, 'flour': 45, 'maida': 40, 'ashirvaad atta': 55,
+  'rice': 60, 'basmati': 120, 'brown rice': 90, 'idli rice': 55, 'sona masuri': 70, 'kolam rice': 75,
+  'rava': 50, 'sooji': 50, 'semolina': 50, 'dalia': 60,
+  'poha': 60, 'beaten rice': 60, 'sabudana': 90,
   
   // Vegetables (per kg)
-  'potato': 30, 'aloo': 30,
-  'onion': 40, 'pyaz': 40,
-  'tomato': 50, 'tamatar': 50,
-  'carrot': 50, 'gajar': 50,
+  'potato': 30, 'aloo': 30, 'baby potato': 40,
+  'onion': 40, 'pyaz': 40, 'red onion': 45, 'sambhar onion': 60,
+  'tomato': 40, 'tamatar': 40, 'hybrid tomato': 35, 'desi tomato': 50,
+  'carrot': 60, 'gajar': 60, 'ooty carrot': 80,
   'cabbage': 35, 'patta gobhi': 35,
-  'cauliflower': 45, 'gobhi': 45, 'phool gobhi': 45,
-  'peas': 80, 'matar': 80,
+  'cauliflower': 50, 'gobhi': 50, 'phool gobhi': 50,
+  'peas': 80, 'matar': 80, 'frozen peas': 180,
   'okra': 60, 'bhindi': 60, 'ladyfinger': 60,
   'brinjal': 50, 'baingan': 50, 'eggplant': 50,
-  'capsicum': 80, 'bell pepper': 80, 'shimla mirch': 80,
-  'beans': 60, 'french beans': 60,
-  'spinach': 40, 'palak': 40,
+  'capsicum': 90, 'bell pepper': 90, 'shimla mirch': 90, 'red capsicum': 250, 'yellow capsicum': 250,
+  'beans': 70, 'french beans': 70, 'cluster beans': 60,
+  'spinach': 40, 'palak': 40, 'methi': 40, 'fenugreek leaves': 40,
   'coriander': 40, 'dhaniya': 40, 'cilantro': 40,
   'mint': 30, 'pudina': 30,
   'curry leaves': 20, 'kadhi patta': 20,
-  'ginger': 80, 'adrak': 80,
-  'garlic': 100, 'lahsun': 100,
-  'green chilli': 60, 'hari mirch': 60,
+  'ginger': 120, 'adrak': 120,
+  'garlic': 200, 'lahsun': 200,
+  'green chilli': 80, 'hari mirch': 80,
   'bottle gourd': 40, 'lauki': 40,
   'ridge gourd': 50, 'turai': 50,
   'bitter gourd': 60, 'karela': 60,
-  'pumpkin': 35, 'kaddu': 35,
+  'pumpkin': 30, 'kaddu': 30,
+  'broccoli': 150, 'mushroom': 200, 'sweet corn': 80,
   
   // Cooking Oils (per litre)
-  'oil': 180, 'sunflower': 180, 'refined': 180,
-  'mustard oil': 200, 'sarson': 200,
-  'groundnut': 220, 'peanut': 220,
-  'ghee': 500, 'clarified butter': 500,
-  'butter': 450, 'makhan': 450,
+  'oil': 160, 'sunflower': 160, 'refined': 150,
+  'mustard oil': 180, 'sarson': 180,
+  'groundnut': 210, 'peanut': 210,
+  'olive oil': 800, 'coconut oil': 350,
+  'ghee': 650, 'clarified butter': 650, 'amul ghee': 680,
+  'butter': 500, 'makhan': 500, 'amul butter': 520,
   
   // Dairy (per litre/kg)
-  'milk': 60, 'doodh': 60,
-  'curd': 60, 'yogurt': 60, 'dahi': 60,
-  'paneer': 350, 'cottage cheese': 350,
-  'cheese': 400, 'cream': 200, 'malai': 200,
+  'milk': 65, 'doodh': 65, 'full cream milk': 72, 'toned milk': 56,
+  'curd': 80, 'yogurt': 120, 'dahi': 80, 'greek yogurt': 300,
+  'paneer': 450, 'cottage cheese': 450, 'fresh paneer': 480,
+  'cheese': 500, 'cheese slices': 600, 'mozzarella': 700,
+  'cream': 250, 'malai': 250, 'fresh cream': 220,
   
   // Pulses/Lentils (per kg)
-  'dal': 110, 'lentil': 110,
-  'toor': 120, 'arhar': 120, 'pigeon pea': 120,
-  'moong': 110, 'green gram': 110,
+  'dal': 130, 'lentil': 130,
+  'toor': 160, 'arhar': 160, 'pigeon pea': 160,
+  'moong': 120, 'green gram': 120, 'moong dal': 140,
   'masoor': 100, 'red lentil': 100,
-  'chana': 90, 'chickpea': 90, 'bengal gram': 90,
-  'urad': 120, 'black gram': 120,
-  'rajma': 130, 'kidney beans': 130,
+  'chana': 90, 'chickpea': 90, 'kabuli chana': 140, 'kala chana': 100,
+  'urad': 140, 'black gram': 140, 'urad dal': 160,
+  'rajma': 150, 'kidney beans': 150,
   
   // Spices (per 100g)
-  'salt': 20, 'namak': 20,
-  'sugar': 45, 'cheeni': 45,
+  'salt': 25, 'namak': 25,
+  'sugar': 50, 'cheeni': 50, 'jaggery': 70, 'gur': 70,
   'masala': 120, 'spice': 120,
   'turmeric': 60, 'haldi': 60,
-  'chilli': 100, 'mirch': 100, 'red chilli': 100,
+  'chilli powder': 100, 'mirch powder': 100, 'red chilli': 100,
   'cumin': 120, 'jeera': 120,
   'coriander powder': 80, 'dhaniya powder': 80,
-  'garam masala': 150, 'black pepper': 200, 'kali mirch': 200,
-  'cardamom': 800, 'elaichi': 800,
-  'clove': 600, 'laung': 600,
-  'cinnamon': 300, 'dalchini': 300,
+  'garam masala': 150, 'black pepper': 250, 'kali mirch': 250,
+  'cardamom': 1200, 'elaichi': 1200,
+  'clove': 800, 'laung': 800,
+  'cinnamon': 400, 'dalchini': 400,
   'bay leaf': 200, 'tej patta': 200,
   'mustard seeds': 100, 'rai': 100,
-  'fenugreek': 80, 'methi': 80,
-  'asafoetida': 400, 'hing': 400,
+  'fenugreek seeds': 80, 'methi dana': 80,
+  'asafoetida': 500, 'hing': 500,
   
   // Packaged/Processed
-  'bread': 40, 'pav': 30,
-  'biscuit': 50, 'cookie': 60,
-  'jam': 120, 'sauce': 100, 'ketchup': 100,
-  'pickle': 150, 'achar': 150,
-  'papad': 60, 'vermicelli': 60, 'sevai': 60,
-  'noodles': 80, 'pasta': 100,
+  'bread': 45, 'pav': 35, 'brown bread': 55,
+  'biscuit': 50, 'cookie': 80,
+  'jam': 150, 'sauce': 120, 'ketchup': 120,
+  'pickle': 200, 'achar': 200,
+  'papad': 80, 'vermicelli': 70, 'sevai': 70,
+  'noodles': 100, 'pasta': 120, 'maggi': 15,
   
   // Eggs & Meat (per dozen/kg)
-  'egg': 70, 'anda': 70,
-  'chicken': 200, 'murgi': 200,
-  'fish': 350, 'machli': 350,
-  'mutton': 600, 'bakra': 600,
+  'egg': 80, 'anda': 80,
+  'chicken': 240, 'murgi': 240, 'chicken breast': 450,
+  'fish': 500, 'machli': 500, 'rohu': 300, 'surmai': 900,
+  'mutton': 800, 'bakra': 800,
   
   // Beverages
-  'tea': 350, 'chai': 350,
-  'coffee': 400,
+  'tea': 450, 'chai': 450, 'green tea': 600,
+  'coffee': 600, 'instant coffee': 800,
   'water': 20,
   
   // Default fallback
-  'default': 75
+  'default': 80
 };
 
 const getEstimate = (itemName, platform = 'bigbasket') => {
@@ -242,12 +273,15 @@ I have a shopping list item: "${requestedItem}"
 Here is a list of available products in my cart (most recent):
 ${JSON.stringify(recentItems)}
 
-Find the single best match.
-- "Tomato" matches "Hybrid Tomato" or "Tamatar"
-- "Milk" matches "Amul Taaza Milk"
+Find the single best SEMANTIC match.
+RULES:
+1. "Tomato" matches "Hybrid Tomato", "Desi Tomato", or "Tamatar".
+2. "Tomato" does NOT match "Cherry Tomato" or "Organic Sun-dried Tomato" because they are specialty items with vastly different prices.
+3. If the requested item is generic, do NOT match it with a "Premium", "Organic", or "Imported" version if a standard version is likely available.
+4. Only return a match if it's a reasonable substitute that a normal shopper would pick.
 
 Return ONLY the exact string from the list.
-If NO match, return "null".
+If NO reasonable match, return "null".
 `.trim();
 
     const raw = await chatText({
@@ -282,45 +316,47 @@ export const scrapePrice = async (platform, itemName, options = {}) => {
   const cleanName = cleanItemName(itemName);
   const exactKey = `${platform}:${cleanName}`;
   
-  // 1. Try Exact Match
+  console.log(`[scrapePrice] Request: ${platform} | ${itemName} (cleaned: ${cleanName})`);
+
+  // 1. Try Exact/Fuzzy Match from getCached
   let cached = getCached(exactKey);
   
-  // If we found a REAL price (not estimate), return it immediately
+  // If we found a REAL price (from extension), return it immediately
   if (cached && !cached.isEstimate) {
-    console.log(`[${platform}] HIT (Exact): "${itemName}" -> INR ${cached.price}`);
+    console.log(`[${platform}] HIT (Real): "${itemName}" -> INR ${cached.price} from source ${cached.source || 'unknown'}`);
     return cached;
   }
 
-  // 3. Try AI Semantic Match (New!)
-  // Only try this if we have "real" data in cache to match against
+  // 2. Try AI Semantic Match (if allowed and no real price found yet)
   if (allowAiMatch) {
-    const aiKey = await findBestCacheMatch(platform, itemName); // Pass original itemName for better context
+    console.log(`[${platform}] Searching for AI semantic match for "${itemName}"...`);
+    const aiKey = await findBestCacheMatch(platform, itemName);
     if (aiKey) {
       const aiCached = getCached(aiKey);
       if (aiCached && !aiCached.isEstimate) {
-        console.log(`[${platform}] HIT (AI): "${itemName}" -> "${aiKey}" (INR ${aiCached.price})`);
+        console.log(`[${platform}] HIT (AI): "${itemName}" -> matched "${aiKey}" (INR ${aiCached.price})`);
         
-        // OPTIMIZATION: Save this AI match as a direct alias in the cache!
-        // Next time "Tomato" is requested, it will be an EXACT match for this alias.
-        // We copy the real data but keep the original key reference if needed.
-        const aliasValue = { ...aiCached, sourceAlias: aiKey };
+        const matchedName = aiCached.originalName || aiKey.split(':')[1];
+        
+        // Save as alias in cache for faster subsequent lookups
+        const aliasValue = { ...aiCached, sourceAlias: aiKey, matchedName };
         setCache(exactKey, aliasValue);
         
-        return aiCached;
+        return { ...aiCached, matchedName };
       }
     }
   }
 
-  // 3. If we still only have the exact-match Estimate from step 1, use it as fallback
+  // 3. Fallback to the estimate we might have found in step 1
   if (cached) {
      console.log(`[${platform}] HIT (Estimate): "${itemName}" -> INR ${cached.price}`);
-     return cached;
+     return { ...cached, matchedName: cached.originalName || null };
   }
 
-  // 4. Cache Miss - use market estimate
-  console.log(`[${platform}] MISS: Using estimate for "${itemName}"`);
+  // 4. Complete Cache Miss - use market estimate
+  console.log(`[${platform}] TOTAL MISS: Using fresh estimate for "${itemName}"`);
   const price = getEstimate(itemName, platform);
-  const result = { price, unit: '1 unit', isEstimate: true };
+  const result = { price, unit: '1 unit', isEstimate: true, matchedName: 'Market Estimate' };
   
   setCache(exactKey, result);
   return result;
@@ -426,6 +462,19 @@ export const getCacheStats = () => {
   });
   
   return stats;
+};
+
+export const getLatestCapturedAt = () => {
+  let latestMs = null;
+  priceCache.forEach((entry) => {
+    if (entry?.value?.isEstimate === false) {
+      const capturedMs = entry.value.capturedAt
+        ? new Date(entry.value.capturedAt).getTime()
+        : entry.time;
+      if (!latestMs || capturedMs > latestMs) latestMs = capturedMs;
+    }
+  });
+  return latestMs ? new Date(latestMs).toISOString() : null;
 };
 
 export const clearCache = () => {

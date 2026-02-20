@@ -50,15 +50,28 @@ export const generateMealPlan = async (profiles, previousMeals = []) => {
     const hasEggetarian = normalizedDiets.includes('eggetarian') || normalizedDiets.includes('eggeterian');
     const hasNonVeg = normalizedDiets.includes('non-veg') || normalizedDiets.includes('nonveg') || normalizedDiets.includes('non vegetarian');
 
-    const effectiveDietRule = hasVegan
-      ? 'VEGAN: No meat, fish, eggs, or dairy.'
-      : hasVegetarian
-        ? 'STRICTLY VEGETARIAN: No meat, no fish, no eggs. Dairy is allowed.'
-        : hasEggetarian
-          ? 'EGGETARIAN: Vegetarian food plus eggs are allowed. No meat/fish.'
-          : 'NON-VEGETARIAN: Meat, chicken, fish, eggs are all allowed.';
-    const mustAvoidEggs = hasVegan || hasVegetarian;
-    const mustAvoidDairy = hasVegan;
+    // Determine if we need "Split Meals" (mixed diet types)
+    const isMixedDiet = (hasNonVeg || hasEggetarian) && (hasVegetarian || hasVegan);
+
+    let effectiveDietRule = '';
+    if (isMixedDiet) {
+      effectiveDietRule = `MIXED DIET HOUSEHOLD: Some members are Vegetarian/Vegan while others are Non-Vegetarian. 
+      CRITICAL: For every meal, you MUST provide a "Split Meal" solution. 
+      - If the base dish is naturally vegetarian (e.g., Dal, Sabzi), suggest a non-veg side/addition for non-veg members.
+      - If the main dish is non-vegetarian (e.g., Chicken Curry), you MUST provide a dedicated vegetarian alternative (e.g., Paneer Curry) using the same base spices/prep where possible.
+      - Use the "secondary" field in the JSON for the alternative recipe.`;
+    } else {
+      effectiveDietRule = hasVegan
+        ? 'VEGAN: No meat, fish, eggs, or dairy.'
+        : hasVegetarian
+          ? 'STRICTLY VEGETARIAN: No meat, no fish, no eggs. Dairy is allowed.'
+          : hasEggetarian
+            ? 'EGGETARIAN: Vegetarian food plus eggs are allowed. No meat/fish.'
+            : 'NON-VEGETARIAN: Meat, chicken, fish, eggs are all allowed.';
+    }
+
+    const mustAvoidEggs = (hasVegan || hasVegetarian) && !isMixedDiet;
+    const mustAvoidDairy = hasVegan && !isMixedDiet;
 
     // Detect current city from profile or IP (fallback to common Indian)
     const currentCity = profiles[0]?.city || 'Common Indian';
@@ -89,6 +102,16 @@ ALLERGIES (MANDATORY AVOIDANCE): ${allergies.length > 0 ? allergies.join(', ') :
 DISLIKES (AVOID): ${dislikes.length > 0 ? dislikes.join(', ') : 'None'}
 LIKES (PRIORITIZE): ${likes.length > 0 ? likes.join(', ') : 'Open to all'}
 COMFORT FOODS (PRIORITIZE WHEN POSSIBLE): ${comfortFoods.length > 0 ? comfortFoods.join(', ') : 'None'}
+
+================================================================
+SPLIT MEAL INSTRUCTIONS (For Mixed Diets):
+================================================================
+Since this is a mixed-diet household, for each breakfast, lunch, and dinner:
+1. Provide the primary recipe in the standard fields (name, ingredients, instructions).
+2. If the primary recipe doesn't suit EVERYONE'S diet (e.g., it's Non-Veg but someone is Veg), you MUST provide a "secondary" recipe object inside that meal.
+3. The "secondary" recipe should be the alternative (e.g., Paneer version of a Chicken dish).
+4. Set "isSplitMeal": true for such meals.
+5. The shopping list MUST include ingredients for BOTH recipes.
 
 ================================================================
 CUISINE FUSION STRATEGY:
@@ -166,9 +189,9 @@ SHOPPING LIST REQUIREMENTS (CRITICAL):
 - If Vegan or Vegetarian, do not include egg
 - If Vegan, do not include dairy (milk, ghee, butter, paneer, curd)
 - Consolidate quantities of the same item
-- item: generic product name only (no brands or qty in item field)
-- qty: total consolidated quantity with unit
-- price: realistic market price estimate in INR
+- item: specific product name (e.g., "Sona Masuri Rice", "Organic Tomato", "Amul Butter")
+- qty: total consolidated quantity with unit (standard units: kg, g, l, ml, pc)
+- price: realistic market price estimate in INR for the specified quantity
 
 ================================================================
 EXAMPLE RECIPE FORMAT (MANDATORY):
@@ -207,26 +230,47 @@ EXAMPLE RECIPE FORMAT (MANDATORY):
 }
 
 ================================================================
+================================================================
 JSON RESPONSE FORMAT (STRICTLY FOLLOW - RETURN ONLY JSON):
 ================================================================
 {
   "weeklyMenu": [
     {
       "day": "Monday",
-      "theme": "South Indian Breakfast + North Indian Lunch + Pan-Indian Dinner",
-      "breakfast": { /* detailed recipe as shown above */ },
-      "lunch": { /* detailed recipe */ },
+      "theme": "...",
+      "breakfast": { 
+        "name": "Primary Dish",
+        "ingredients": ["..."],
+        "instructions": ["..."],
+        "time": "...",
+        "cals": "...",
+        "serves": "...",
+        "reasoning": "Explain why this dish was chosen based on profile/fusion.",
+        "isSplitMeal": true,
+        "secondary": {
+           "name": "Alternative Dish",
+           "ingredients": ["..."],
+           "instructions": ["..."],
+           "time": "...",
+           "cals": "...",
+           "serves": "...",
+           "reasoning": "Explain why this alternative was chosen (e.g., shared base with primary)."
+        }
+      },
+      "lunch": { /* detailed recipe as shown above, secondary and its reasoning are optional if 1 dish serves all */ },
       "dinner": { /* detailed recipe */ },
-      "nutritionBalance": "High protein from dal, fiber from vegetables, carbs from rice and roti - balanced meal"
+      "nutritionBalance": "..."
     }
   ],
   "shoppingList": [
-    {"item": "Basmati Rice", "qty": "3kg", "price": 360}
+    {"item": "Basmati Rice", "qty": "1kg", "price": 120},
+    {"item": "Tomato", "qty": "500g", "price": 25},
+    {"item": "Amul Butter", "qty": "100g", "price": 56}
   ],
   "regionalDistribution": {
     "${regions[0] || 'Regional 1'}": ["Monday Breakfast", "Thursday Dinner"]
   },
-  "reasoning": "Explain why this plan matches the household preferences.",
+  "reasoning": "Overall plan reasoning summarizing how it fits the budget, variety, and mixed diet requirements.",
   "totalCost": 1500
 }
 
@@ -468,12 +512,13 @@ Return ONLY valid JSON.`;
 
 const parseQty = (qtyStr) => {
   if (!qtyStr) return { val: 1, unit: 'unit' };
-  const val = parseFloat(qtyStr);
+  const val = parseFloat(qtyStr) || 1;
   const unit = qtyStr.replace(/[0-9.]/g, '').toLowerCase().trim();
   
-  if (unit === 'g' || unit === 'gm') return { val: val / 1000, unit: 'kg' };
-  if (unit === 'ml') return { val: val / 1000, unit: 'l' };
-  if (unit === 'kg' || unit === 'l' || unit === 'litre') return { val, unit: unit[0] };
+  if (unit === 'g' || unit === 'gm' || unit === 'gram' || unit === 'grams') return { val: val / 1000, unit: 'kg' };
+  if (unit === 'ml' || unit === 'millilitre' || unit === 'milliliter') return { val: val / 1000, unit: 'l' };
+  if (unit === 'kg' || unit === 'kilo' || unit === 'kilogram') return { val, unit: 'kg' };
+  if (unit === 'l' || unit === 'litre' || unit === 'liter') return { val, unit: 'l' };
   
   return { val, unit: 'unit' };
 };
@@ -489,6 +534,10 @@ const calculateTotal = (scraped, targetQtyStr) => {
   if (target.unit === source.unit) {
     const pricePerUnit = scraped.price / source.val;
     finalPrice = Math.round(pricePerUnit * target.val * 100) / 100;
+  } else if (target.unit === 'unit' || source.unit === 'unit') {
+    // If one is "unit" and other isn't, we can't accurately convert unless we assume 1 unit = source weight/volume
+    // but usually, if target is "2 pcs" and source is "500g", we just multiply.
+    finalPrice = Math.round(scraped.price * (target.val / source.val) * 100) / 100;
   }
   
   const isEst = scraped.isEstimate === true;
@@ -518,7 +567,7 @@ export const comparePrices = async (shoppingList, mealPlanId = null) => {
     const platforms = ['bigbasket', 'blinkit', 'zepto', 'instamart'];
     const localCache = new Map();
 
-    const tasks = shoppingList.map(item => {
+    const tasks = shoppingList.map((item, index) => {
       return queue.add(async () => {
         const searchName = cleanItemName(item.item);
         
@@ -528,7 +577,7 @@ export const comparePrices = async (shoppingList, mealPlanId = null) => {
             return { platform, price: localCache.get(cacheKey) };
           }
           try {
-            const price = await scrapePrice(platform, searchName, { allowAiMatch: false });
+            const price = await scrapePrice(platform, searchName, { allowAiMatch: true });
             localCache.set(cacheKey, price);
             return { platform, price };
           } catch {
@@ -540,15 +589,20 @@ export const comparePrices = async (shoppingList, mealPlanId = null) => {
         
         const itemComparison = {
           item: item.item,
-          qty: item.qty
+          qty: item.qty,
+          originalIndex: index // Keep track of original position
         };
 
         results.forEach(({ platform, price }) => {
           const calculated = calculateTotal(price, item.qty);
           itemComparison[platform] = calculated?.price || null;
           
-          if (!itemComparison.isEstimate) itemComparison.isEstimate = {};
-          itemComparison.isEstimate[platform] = calculated?.isEstimate || false;
+          if (!itemComparison.metadata) itemComparison.metadata = {};
+          itemComparison.metadata[platform] = {
+            isEstimate: price?.isEstimate || false,
+            matchedName: price?.originalName || price?.matchedName || null,
+            sourceUnit: price?.unit || null
+          };
 
           if (calculated?.price !== null) {
             totals[platform] += calculated.price;
@@ -562,10 +616,13 @@ export const comparePrices = async (shoppingList, mealPlanId = null) => {
 
     await Promise.all(tasks);
 
+    // Sort results back to original order to prevent data misalignment
+    comparisonResults.sort((a, b) => a.originalIndex - b.originalIndex);
+
     const totalItems = shoppingList.length;
     const validPlatforms = platforms.filter(platform => {
       const coverage = foundCounts[platform] / totalItems;
-      return coverage >= 0.5;
+      return coverage >= 0.5; // Platform must have at least 50% of items
     });
 
     let bestPlatform = 'N/A';
@@ -583,46 +640,43 @@ export const comparePrices = async (shoppingList, mealPlanId = null) => {
     let recommendation = "Could not compare prices due to insufficient data.";
     
     if (bestPlatform !== 'N/A') {
+      recommendation = `OK: Best platform: ${bestPlatform.toUpperCase()} - INR ${totals[bestPlatform].toFixed(2)}`;
       const missingCount = totalItems - foundCounts[bestPlatform];
-      recommendation = `OK: Best platform: ${bestPlatform.toUpperCase()} - INR ${minTotal.toFixed(2)}`;
-      if (missingCount > 0) recommendation += ` (${missingCount} missing)`;
+      if (missingCount > 0) recommendation += ` (${missingCount} items estimated/missing)`;
     }
     
     // SAVE RESULTS TO DB
     if (mealPlanId) {
         try {
-            // 1. Fetch current plan data
             const [rows] = await pool.query('SELECT plan_data FROM meal_plans WHERE id = ?', [mealPlanId]);
             if (rows.length > 0) {
                 const planData = typeof rows[0].plan_data === 'string' 
                     ? JSON.parse(rows[0].plan_data) 
                     : rows[0].plan_data;
 
-                // 2. Update Shopping List Prices with REAL prices from best platform (or lowest available)
-                // This converts "Estimated Cost" to "Real Cost" for next load
+                // Update Shopping List Prices using the CORRECTLY ORDERED comparisonResults
                 planData.shoppingList = planData.shoppingList.map((item, idx) => {
                     const comp = comparisonResults[idx];
-                    let bestPrice = item.price; // fallback to original estimate
+                    if (!comp) return item;
+
+                    let bestPrice = item.price; 
                     
-                    // Try to use best platform price
+                    // 1. If we have a best platform overall, use its price for this item
                     if (bestPlatform !== 'N/A' && comp[bestPlatform] !== null) {
                         bestPrice = comp[bestPlatform];
                     } else {
-                        // Or lowest available
-                        const prices = platforms
+                        // 2. Otherwise, use the lowest available price across all platforms
+                        const availablePrices = platforms
                             .map(p => comp[p])
                             .filter(p => p !== null)
                             .sort((a, b) => a - b);
-                        if (prices.length > 0) bestPrice = prices[0];
+                        if (availablePrices.length > 0) bestPrice = availablePrices[0];
                     }
                     
                     return { ...item, price: bestPrice };
                 });
 
-                // 3. Update Total Cost
                 planData.totalCost = planData.shoppingList.reduce((sum, item) => sum + (item.price || 0), 0);
-
-                // 4. Attach Comparison Data
                 planData.priceComparison = {
                     results: comparisonResults,
                     totals: totals,
@@ -631,9 +685,7 @@ export const comparePrices = async (shoppingList, mealPlanId = null) => {
                 };
                 planData.shoppingListStale = false;
 
-                // 5. Save back to DB
                 await pool.query('UPDATE meal_plans SET plan_data = ? WHERE id = ?', [JSON.stringify(planData), mealPlanId]);
-                console.log(`[DB] Saved price comparison to Meal Plan #${mealPlanId}`);
             }
         } catch (dbErr) {
             console.error('[DB] Failed to save price comparison:', dbErr.message);

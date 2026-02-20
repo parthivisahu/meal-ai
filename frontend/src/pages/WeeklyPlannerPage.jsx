@@ -257,6 +257,9 @@ const WeeklyPlannerPage = () => {
                             <div>
                               <p className="text-xs font-bold uppercase text-orange-600">Breakfast</p>
                               <h4 className="font-bold text-lg">{day.breakfast.name}</h4>
+                              {day.breakfast.isSplitMeal && day.breakfast.secondary && (
+                                <p className="text-xs font-semibold text-purple-600">+ Alternative: {day.breakfast.secondary.name}</p>
+                              )}
                             </div>
                           </div>
                           <div className="text-right">
@@ -265,7 +268,9 @@ const WeeklyPlannerPage = () => {
                           </div>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-600">Click to view full recipe →</p>
+                          <p className="text-sm text-gray-600">
+                            {day.breakfast.isSplitMeal ? 'View Split Recipes →' : 'Click to view full recipe →'}
+                          </p>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={(e) => {
@@ -300,6 +305,9 @@ const WeeklyPlannerPage = () => {
                             <div>
                               <p className="text-xs font-bold uppercase text-green-600">Lunch</p>
                               <h4 className="font-bold text-lg">{day.lunch.name}</h4>
+                              {day.lunch.isSplitMeal && day.lunch.secondary && (
+                                <p className="text-xs font-semibold text-purple-600">+ Alternative: {day.lunch.secondary.name}</p>
+                              )}
                             </div>
                           </div>
                           <div className="text-right">
@@ -308,7 +316,9 @@ const WeeklyPlannerPage = () => {
                           </div>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-600">Click to view full recipe →</p>
+                          <p className="text-sm text-gray-600">
+                             {day.lunch.isSplitMeal ? 'View Split Recipes →' : 'Click to view full recipe →'}
+                          </p>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={(e) => {
@@ -343,6 +353,9 @@ const WeeklyPlannerPage = () => {
                             <div>
                               <p className="text-xs font-bold uppercase text-blue-600">Dinner</p>
                               <h4 className="font-bold text-lg">{day.dinner.name}</h4>
+                              {day.dinner.isSplitMeal && day.dinner.secondary && (
+                                <p className="text-xs font-semibold text-purple-600">+ Alternative: {day.dinner.secondary.name}</p>
+                              )}
                             </div>
                           </div>
                           <div className="text-right">
@@ -351,7 +364,9 @@ const WeeklyPlannerPage = () => {
                           </div>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-600">Click to view full recipe →</p>
+                          <p className="text-sm text-gray-600">
+                             {day.dinner.isSplitMeal ? 'View Split Recipes →' : 'Click to view full recipe →'}
+                          </p>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={(e) => {

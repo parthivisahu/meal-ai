@@ -1,6 +1,51 @@
 import pool from '../config/database.js';
 import { generateMealPlan, generateSingleMeal } from '../services/mealPlanningService.js';
 
+const parseNumericNoUnit = (qty) => {
+  if (qty == null) return null;
+  const raw = String(qty).trim();
+  if (!raw) return null;
+  if (/[a-z]/i.test(raw)) return null;
+  const num = parseFloat(raw);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return num;
+};
+
+const parseCountQty = (qty) => {
+  if (qty == null) return null;
+  const raw = String(qty).trim().toLowerCase();
+  if (!raw) return null;
+  const num = parseFloat(raw);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  if (/(pc|pcs|piece|pieces|unit|units|nos|no|clove|cloves)\b/.test(raw)) return num;
+  if (!/[a-z]/.test(raw)) return num;
+  return null;
+};
+
+const applyPiecePriceOverrides = (shoppingList) => {
+  const rules = [
+    { pattern: /green\s+chill?i/i, perPiecePrice: 2 },
+    { pattern: /\blemon(s)?\b/i, perPiecePrice: 5 },
+    { pattern: /\bgarlic\b/i, perPiecePrice: 2 }
+  ];
+
+  return shoppingList.map((item) => {
+    const qtyNum = parseCountQty(item?.qty) ?? parseNumericNoUnit(item?.qty);
+    if (!qtyNum) return item;
+
+    const rule = rules.find(r => r.pattern.test(item?.item || ''));
+    if (!rule) return item;
+
+    const newPrice = Math.round(qtyNum * rule.perPiecePrice * 100) / 100;
+    const currentPrice = Number(item?.price);
+
+    if (!Number.isFinite(currentPrice) || currentPrice > newPrice * 3) {
+      return { ...item, price: newPrice };
+    }
+    return item;
+  });
+};
+
 export const createMealPlan = async (req, res) => {
   try {
     // Get user's household profiles
@@ -75,20 +120,23 @@ export const createMealPlan = async (req, res) => {
     }
 
     // Ensure required fields with fallbacks
-    if (!mealPlan.shoppingList || !Array.isArray(mealPlan.shoppingList)) {
-      console.warn('[MealPlan] No valid shoppingList, using empty array');
-      mealPlan.shoppingList = [];
-    }
+      if (!mealPlan.shoppingList || !Array.isArray(mealPlan.shoppingList)) {
+        console.warn('[MealPlan] No valid shoppingList, using empty array');
+        mealPlan.shoppingList = [];
+      }
+      mealPlan.shoppingList = applyPiecePriceOverrides(mealPlan.shoppingList);
 
     if (!mealPlan.reasoning || typeof mealPlan.reasoning !== 'string') {
       console.warn('[MealPlan] No valid reasoning, using default');
       mealPlan.reasoning = 'Meal plan generated based on your household preferences and dietary requirements.';
     }
 
-    if (typeof mealPlan.totalCost !== 'number' || mealPlan.totalCost < 0) {
-      console.warn('[MealPlan] Invalid totalCost, calculating from shopping list');
-      mealPlan.totalCost = mealPlan.shoppingList.reduce((sum, item) => sum + (item.price || 0), 0);
-    }
+      if (typeof mealPlan.totalCost !== 'number' || mealPlan.totalCost < 0) {
+        console.warn('[MealPlan] Invalid totalCost, calculating from shopping list');
+        mealPlan.totalCost = mealPlan.shoppingList.reduce((sum, item) => sum + (item.price || 0), 0);
+      } else {
+        mealPlan.totalCost = mealPlan.shoppingList.reduce((sum, item) => sum + (item.price || 0), 0);
+      }
 
     if (!mealPlan.regionalDistribution) {
       mealPlan.regionalDistribution = {};
@@ -199,19 +247,23 @@ export const getMealPlans = async (req, res) => {
       [req.user.userId]
     );
 
-    const formattedPlans = plans.map(plan => {
-      let planData;
-      try {
-        planData = typeof plan.plan_data === 'string' ? JSON.parse(plan.plan_data) : plan.plan_data;
-      } catch (e) {
-        console.error('[MealPlan] Failed to parse plan data:', e);
-        planData = { weeklyMenu: [], shoppingList: [], error: 'Failed to load plan data' };
-      }
+      const formattedPlans = plans.map(plan => {
+        let planData;
+        try {
+          planData = typeof plan.plan_data === 'string' ? JSON.parse(plan.plan_data) : plan.plan_data;
+        } catch (e) {
+          console.error('[MealPlan] Failed to parse plan data:', e);
+          planData = { weeklyMenu: [], shoppingList: [], error: 'Failed to load plan data' };
+        }
+        if (Array.isArray(planData.shoppingList)) {
+          planData.shoppingList = applyPiecePriceOverrides(planData.shoppingList);
+          planData.totalCost = planData.shoppingList.reduce((sum, item) => sum + (item.price || 0), 0);
+        }
 
-      return {
-        ...plan,
-        week_start_date: new Date(plan.week_start_date).toISOString().split('T')[0],
-        plan_data: planData
+        return {
+          ...plan,
+          week_start_date: new Date(plan.week_start_date).toISOString().split('T')[0],
+          plan_data: planData
       };
     });
 
@@ -236,14 +288,18 @@ export const getMealPlanById = async (req, res) => {
     }
 
     let planData;
-    try {
-      planData = typeof plans[0].plan_data === 'string' 
-        ? JSON.parse(plans[0].plan_data) 
-        : plans[0].plan_data;
-    } catch (e) {
-      console.error('[MealPlan] Failed to parse plan data:', e);
-      planData = { weeklyMenu: [], shoppingList: [], error: 'Failed to load plan data' };
-    }
+      try {
+        planData = typeof plans[0].plan_data === 'string' 
+          ? JSON.parse(plans[0].plan_data) 
+          : plans[0].plan_data;
+      } catch (e) {
+        console.error('[MealPlan] Failed to parse plan data:', e);
+        planData = { weeklyMenu: [], shoppingList: [], error: 'Failed to load plan data' };
+      }
+      if (Array.isArray(planData.shoppingList)) {
+        planData.shoppingList = applyPiecePriceOverrides(planData.shoppingList);
+        planData.totalCost = planData.shoppingList.reduce((sum, item) => sum + (item.price || 0), 0);
+      }
 
     const plan = {
       ...plans[0],
@@ -305,11 +361,12 @@ export const regenerateMealPlan = async (req, res) => {
     // Generate new meal plan
     const mealPlan = await generateMealPlan(profiles, previousMeals);
 
-    // Ensure defaults
-    mealPlan.shoppingList = mealPlan.shoppingList || [];
-    mealPlan.reasoning = mealPlan.reasoning || 'Regenerated meal plan based on your preferences.';
-    mealPlan.totalCost = typeof mealPlan.totalCost === 'number' ? mealPlan.totalCost : 0;
-    mealPlan.shoppingListStale = false;
+      // Ensure defaults
+      mealPlan.shoppingList = mealPlan.shoppingList || [];
+      mealPlan.shoppingList = applyPiecePriceOverrides(mealPlan.shoppingList);
+      mealPlan.reasoning = mealPlan.reasoning || 'Regenerated meal plan based on your preferences.';
+      mealPlan.totalCost = mealPlan.shoppingList.reduce((sum, item) => sum + (item.price || 0), 0);
+      mealPlan.shoppingListStale = false;
 
     // Update existing plan
     await pool.query(

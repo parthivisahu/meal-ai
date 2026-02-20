@@ -187,13 +187,17 @@ const ShoppingListPage = () => {
                  comparisonMap[name] = { item: name, blinkit: 0, zepto: 0, bigbasket: 0 };
             }
     
-            // Map price AND estimate status
+            // Map price AND metadata
             const platformKey = item.platform.toLowerCase();
-            if (['blinkit', 'zepto', 'bigbasket'].includes(platformKey)) {
+            if (['blinkit', 'zepto', 'bigbasket', 'instamart'].includes(platformKey)) {
                 comparisonMap[name][platformKey] = item.price;
-                // Store estimate flag
-                if (!comparisonMap[name].isEstimate) comparisonMap[name].isEstimate = {};
-                comparisonMap[name].isEstimate[platformKey] = item.isEstimate;
+                
+                if (!comparisonMap[name].metadata) comparisonMap[name].metadata = {};
+                comparisonMap[name].metadata[platformKey] = {
+                    isEstimate: item.isEstimate,
+                    matchedName: item.matchedName,
+                    sourceUnit: item.sourceUnit
+                };
             }
           });
       }
@@ -301,6 +305,17 @@ const ShoppingListPage = () => {
     return 'Other';
   };
 
+  const formatQty = (qty) => {
+    if (qty == null) return '';
+    const raw = String(qty).trim();
+    if (!raw) return '';
+    const hasLetters = /[a-z]/i.test(raw);
+    if (hasLetters) return raw;
+    const num = parseFloat(raw);
+    if (Number.isNaN(num)) return raw;
+    return `${raw} pcs`;
+  };
+
   const groupedItems = (mealPlan.plan_data.shoppingList || []).reduce((acc, item, index) => {
     const category = getCategory(item.item);
     if (!acc[category]) acc[category] = [];
@@ -309,14 +324,25 @@ const ShoppingListPage = () => {
   }, {});
 
   // Helper to render price cell
-  const renderPriceCell = (price, isEstimate) => {
+  const renderPriceCell = (price, metadata) => {
       if (!price) return <td className="text-right p-3 text-gray-400">-</td>;
+      const isEstimate = metadata?.isEstimate ?? true;
+      const matchedName = metadata?.matchedName;
+      
       return (
           <td className="text-right p-3">
               <span className={`font-medium ${isEstimate ? 'text-orange-600' : 'text-green-700'}`}>
                   ₹{price}
               </span>
-              {isEstimate && <span className="text-xs text-gray-500 ml-1">(Est)</span>}
+              {isEstimate ? (
+                  <div className="text-[9px] text-gray-500 leading-tight">
+                    {matchedName || 'Estimate'}
+                  </div>
+              ) : (
+                  <div className="text-[9px] text-green-600 font-bold leading-tight truncate max-w-[80px]" title={matchedName}>
+                    {matchedName || 'Verified'}
+                  </div>
+              )}
           </td>
       );
   };
@@ -384,7 +410,7 @@ const ShoppingListPage = () => {
                         <span className="text-2xl">✓</span>
                         <div>
                           <p className="font-semibold text-gray-800">{item.item}</p>
-                          <p className="text-sm text-gray-600">{item.qty}</p>
+                          <p className="text-sm text-gray-600">{formatQty(item.qty)}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -412,6 +438,9 @@ const ShoppingListPage = () => {
             <span className="text-2xl font-bold text-gray-800">{priceComparison ? 'Total Cost' : 'Total Estimated Cost'}</span>
             <span className="text-3xl font-bold text-green-600">₹{displayTotal}</span>
           </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Note: Prices are AI-based estimates and may be approximate.
+          </p>
         </div>
 
 
@@ -450,9 +479,9 @@ const ShoppingListPage = () => {
                   {priceComparison.comparison?.map((item, index) => (
                     <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
                       <td className="p-3">{item.item}</td>
-                      {renderPriceCell(item.blinkit, item.isEstimate?.blinkit)}
-                      {renderPriceCell(item.zepto, item.isEstimate?.zepto)}
-                      {renderPriceCell(item.bigbasket, item.isEstimate?.bigbasket)}
+                      {renderPriceCell(item.blinkit, item.metadata?.blinkit)}
+                      {renderPriceCell(item.zepto, item.metadata?.zepto)}
+                      {renderPriceCell(item.bigbasket, item.metadata?.bigbasket)}
                     </tr>
                   ))}
                   <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">

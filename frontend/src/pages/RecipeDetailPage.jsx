@@ -39,6 +39,71 @@ const RecipeDetailPage = () => {
   // Determine meal type from URL or location state
   const mealType = location.pathname.split('/').pop();
 
+  const RecipeSection = ({ recipe, title, isSecondary = false }) => (
+    <div className={`${isSecondary ? 'border-t-4 border-purple-500 pt-8 mt-12' : ''}`}>
+      {isSecondary && (
+        <div className="bg-purple-100 text-purple-800 px-4 py-2 rounded-lg font-bold mb-6 inline-block">
+          🔄 Alternative Option (Vegetarian/Other)
+        </div>
+      )}
+      <h1 className="text-3xl font-bold text-gray-900 mb-4">{recipe.name}</h1>
+      
+      <div className="flex gap-4 text-sm mb-8">
+        <span className="bg-orange-100 px-4 py-2 rounded-full">
+          ⏱️ {recipe.time}
+        </span>
+        <span className="bg-green-100 px-4 py-2 rounded-full">
+          🔥 {recipe.cals}
+        </span>
+        {recipe.serves && (
+          <span className="bg-blue-100 px-4 py-2 rounded-full">
+            👥 {recipe.serves}
+          </span>
+        )}
+      </div>
+
+      {recipe.reasoning && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 italic text-blue-800">
+          💡 {recipe.reasoning}
+        </div>
+      )}
+
+      {/* Ingredients */}
+      <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+          📦 Ingredients
+        </h2>
+        <div className="grid md:grid-cols-2 gap-3">
+          {recipe.ingredients?.map((ingredient, index) => (
+            <div key={index} className="flex items-start gap-3 bg-gray-50 p-3 rounded-lg">
+              <span className="text-green-600 font-bold mt-1">✓</span>
+              <span className="text-gray-700">{ingredient}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+          👨‍🍳 Cooking Instructions
+        </h2>
+        <div className="space-y-4">
+          {recipe.instructions?.map((instruction, index) => (
+            <div key={index} className="flex gap-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold">
+                {index + 1}
+              </div>
+              <div className="flex-1 bg-gray-50 p-4 rounded-lg">
+                <p className="text-gray-700">{instruction}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-green-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
@@ -50,59 +115,27 @@ const RecipeDetailPage = () => {
           >
             ← Back to Weekly Planner
           </button>
-          <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-4">
             <span className="text-5xl">{getMealIcon(mealType)}</span>
             <div>
-              <p className="text-sm text-gray-600">{day}</p>
-              <h1 className="text-3xl font-bold text-gray-900">{meal.name}</h1>
+              <p className="text-sm text-gray-600 font-bold uppercase tracking-wider">{day} • {mealType}</p>
+              {meal.isSplitMeal && (
+                <span className="bg-purple-600 text-white text-[10px] px-2 py-1 rounded-full font-bold uppercase">Split Meal</span>
+              )}
             </div>
           </div>
-          <div className="flex gap-4 text-sm">
-            <span className="bg-orange-100 px-4 py-2 rounded-full">
-              ⏱️ {meal.time}
-            </span>
-            <span className="bg-green-100 px-4 py-2 rounded-full">
-              🔥 {meal.cals}
-            </span>
-          </div>
         </div>
 
-        {/* Ingredients */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-            📦 Ingredients
-          </h2>
-          <div className="grid md:grid-cols-2 gap-3">
-            {meal.ingredients?.map((ingredient, index) => (
-              <div key={index} className="flex items-start gap-3 bg-gray-50 p-3 rounded-lg">
-                <span className="text-green-600 font-bold mt-1">✓</span>
-                <span className="text-gray-700">{ingredient}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Primary Recipe */}
+        <RecipeSection recipe={meal} title="Primary Recipe" />
 
-        {/* Instructions */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-            👨‍🍳 Cooking Instructions
-          </h2>
-          <div className="space-y-4">
-            {meal.instructions?.map((instruction, index) => (
-              <div key={index} className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-orange-600 text-white rounded-full flex items-center justify-center font-bold">
-                  {index + 1}
-                </div>
-                <div className="flex-1 bg-gray-50 p-4 rounded-lg">
-                  <p className="text-gray-700">{instruction}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Secondary Recipe if Split Meal */}
+        {meal.isSplitMeal && meal.secondary && (
+          <RecipeSection recipe={meal.secondary} title="Alternative Recipe" isSecondary={true} />
+        )}
 
         {/* Tips Section */}
-        <div className={`bg-gradient-to-r ${getMealTypeColor(mealType)} border-2 border-gray-200 rounded-2xl p-8 shadow-lg`}>
+        <div className={`bg-gradient-to-r ${getMealTypeColor(mealType)} border-2 border-gray-200 rounded-2xl p-8 shadow-lg mt-8`}>
           <h2 className="text-2xl font-bold mb-4">💡 Cooking Tips</h2>
           <ul className="space-y-2 text-gray-700">
             <li className="flex items-start gap-2">

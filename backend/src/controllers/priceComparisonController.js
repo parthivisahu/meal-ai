@@ -1,4 +1,4 @@
-import { saveCartPrice, getCacheStats, clearEstimates } from '../services/priceScrapingService.js';
+import { saveCartPrice, getCacheStats, clearEstimates, getLatestCapturedAt } from '../services/priceScrapingService.js';
 import { comparePrices as runComparison } from '../services/mealPlanningService.js';
 import pool from '../config/database.js';
 
@@ -120,8 +120,14 @@ export const comparePrices = async (req, res) => {
     const cachedComparison = planData.priceComparison;
     const cacheAgeMs = cachedComparison?.lastUpdated ? (Date.now() - new Date(cachedComparison.lastUpdated).getTime()) : null;
     const cacheValid = cacheAgeMs !== null && cacheAgeMs < 24 * 60 * 60 * 1000;
+    const latestCapturedAt = getLatestCapturedAt();
+    const cacheStaleByCapture = Boolean(
+      latestCapturedAt &&
+      cachedComparison?.lastUpdated &&
+      new Date(latestCapturedAt).getTime() > new Date(cachedComparison.lastUpdated).getTime()
+    );
 
-    if (cachedComparison && cacheValid && !refresh && skipItems.length === 0) {
+    if (cachedComparison && cacheValid && !refresh && skipItems.length === 0 && !cacheStaleByCapture) {
       const flattened = [];
       const platforms = ['bigbasket', 'blinkit', 'zepto', 'instamart'];
 
@@ -133,7 +139,9 @@ export const comparePrices = async (req, res) => {
               quantity: result.qty,
               platform: platform,
               price: result[platform],
-              isEstimate: result.isEstimate?.[platform] || false
+              isEstimate: result.metadata?.[platform]?.isEstimate ?? true,
+              matchedName: result.metadata?.[platform]?.matchedName || null,
+              sourceUnit: result.metadata?.[platform]?.sourceUnit || null
             });
           }
         });
@@ -155,6 +163,9 @@ export const comparePrices = async (req, res) => {
         lastUpdated: cachedComparison.lastUpdated
       });
     }
+    if (cacheStaleByCapture) {
+      console.log('[PriceController] Cached comparison is older than latest captured price. Recomputing.');
+    }
 
     console.log(`[PriceController] Comparing prices for ${filteredList.length} items...`);
 
@@ -174,7 +185,9 @@ export const comparePrices = async (req, res) => {
               quantity: result.qty,
               platform: platform,
               price: result[platform],
-              isEstimate: result.isEstimate?.[platform] || false
+              isEstimate: result.metadata?.[platform]?.isEstimate ?? true,
+              matchedName: result.metadata?.[platform]?.matchedName || null,
+              sourceUnit: result.metadata?.[platform]?.sourceUnit || null
             });
           }
         });
