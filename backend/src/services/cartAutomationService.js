@@ -239,6 +239,12 @@ export class CartAutomation {
     }
     
     console.log(`[Cart] Browser ready for ${this.platform}`);
+    
+    // For local mode: Give user time to ensure location is set if it's the first run
+    if (!isProduction) {
+        console.log('[Cart] Local Mode: Please ensure your location is set in the opened window.');
+        await new Promise(r => setTimeout(r, 3000)); 
+    }
   }
 
   async login() {
