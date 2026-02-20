@@ -264,6 +264,17 @@ export class CartAutomation {
       // Better waiting strategy for SPAs
       try {
         await this.page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 45000 });
+        
+        // Handle Location Overlays for Zepto/BigBasket
+        if (isProduction) {
+            if (this.platform === 'zepto') {
+                // Try to click "Confirm Location" or "Locate Me" if it exists
+                await this.page.locator('button:has-text("Confirm Location"), button:text("Confirm")').first().click({ force: true, timeout: 3000 }).catch(() => {});
+            } else if (this.platform === 'bigbasket') {
+                // Try to click "Use my current location"
+                await this.page.locator('button:has-text("Use my current location")').first().click({ force: true, timeout: 3000 }).catch(() => {});
+            }
+        }
       } catch (e) {
         console.warn(`[Cart] Navigation failed for ${this.platform} search. Retrying base URL first.`);
         await this.page.goto(this.config.baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});

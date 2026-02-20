@@ -238,15 +238,11 @@ const ShoppingListPage = () => {
                      : platform === 'bigbasket' ? 'https://www.bigbasket.com/basket/?ver=1'
                      : 'https://www.swiggy.com/instamart';
 
-        const msg = (
-            <span>
-                Added {response.data.itemsAdded} items to your {platform} cart. 
-                <a href={cartUrl} target="_blank" rel="noopener noreferrer" className="ml-2 underline font-bold">
-                    View Cart →
-                </a>
-            </span>
-        );
-        setNotice({ type: 'success', message: msg });
+        setNotice({ 
+            type: 'success', 
+            message: `Added ${response.data.itemsAdded} items to your ${platform} cart. Click here to review: ${cartUrl}`,
+            cartUrl: cartUrl
+        });
         setShowOrderModal(false);
       } else {
         setNotice({ type: 'error', message: 'Failed to add items to cart: ' + response.data.error });
@@ -378,8 +374,18 @@ const ShoppingListPage = () => {
         {/* 🛒 Shopping List */}
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
           {notice && (
-            <div className={`mb-6 border-2 rounded-lg px-4 py-3 ${notice.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
-              {notice.message}
+            <div className={`mb-6 border-2 rounded-lg px-4 py-3 flex justify-between items-center ${notice.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+              <p>{notice.message}</p>
+              {notice.cartUrl && (
+                  <a 
+                    href={notice.cartUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="bg-green-600 text-white px-3 py-1 rounded text-sm font-bold ml-4 hover:bg-green-700"
+                  >
+                    Open Cart
+                  </a>
+              )}
             </div>
           )}
           {mealPlan.plan_data.shoppingListStale && (
