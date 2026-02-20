@@ -366,7 +366,11 @@ export class CartAutomation {
           if (addButton) {
               for (let i = 0; i < quantity; i++) {
                 if (isProduction) {
-                    await addButton.click();
+                    // Use force: true to bypass the "LocationOverlay" interception
+                    await addButton.click({ force: true, timeout: 5000 }).catch(async () => {
+                        console.log('[Cart] Standard click failed, attempting dispatchEvent click...');
+                        await addButton.evaluate(node => node.click());
+                    });
                 } else {
                     await this.page.evaluate(el => el.click(), addButton);
                 }
@@ -386,7 +390,7 @@ export class CartAutomation {
             if (i === 0) {
               if (addButton) {
                 try {
-                  if (isProduction) await addButton.click();
+                  if (isProduction) await addButton.click({ force: true });
                   else await addButton.click();
                   clicked = true;
                 } catch (e) {}
