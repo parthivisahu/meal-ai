@@ -265,11 +265,10 @@ export class CartAutomation {
       console.log(`[Cart] Searching for: ${itemName}`);
       
       const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
-
       const searchUrl = this.config.searchUrl(itemName);
       // Better waiting strategy for SPAs
       try {
-        await this.page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 45000 });
+        await this.page.goto(searchUrl, { waitUntil: isProduction ? 'networkidle' : 'networkidle2', timeout: 45000 });
         
         // Handle Location Overlays for Zepto/BigBasket
         if (isProduction) {
@@ -565,7 +564,8 @@ export class CartAutomation {
     try {
       if (this.platform === 'bigbasket') await this.page.goto('https://www.bigbasket.com/basket/?ver=1');
       if (this.platform === 'blinkit') {
-        await this.page.goto('https://blinkit.com', { waitUntil: 'networkidle2', timeout: 45000 });
+        const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
+        await this.page.goto('https://blinkit.com', { waitUntil: isProduction ? 'networkidle' : 'networkidle2', timeout: 45000 });
         const selectors = [
           this.config?.selectors?.cartIcon,
           '[class*="CartIcon"]',
@@ -605,7 +605,8 @@ export class CartAutomation {
         }
       }
       if (this.platform === 'zepto') {
-        await this.page.goto('https://www.zeptonow.com', { waitUntil: 'networkidle2', timeout: 45000 });
+        const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
+        await this.page.goto('https://www.zeptonow.com', { waitUntil: isProduction ? 'networkidle' : 'networkidle2', timeout: 45000 });
         const selectors = [
           this.config?.selectors?.cartIcon,
           '[data-testid="cart-icon"]',
