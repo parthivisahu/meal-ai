@@ -187,7 +187,9 @@ export class CartAutomation {
             });
             this.context = await this.browser.newContext({
                 viewport: { width: 1920, height: 1080 },
-                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                geolocation: { latitude: 17.385044, longitude: 78.486671 },
+                permissions: ['geolocation', 'notifications']
             });
             this.page = await this.context.newPage();
         } else {
@@ -288,11 +290,15 @@ export class CartAutomation {
       try {
           if (isProduction) {
               // Playwright style waiting
+              const waitOptions = { timeout: 10000 };
               if (this.platform === 'blinkit') {
-                  // Use a more robust selector for waiting
-                  await this.page.waitForSelector('div[class*="AddToCart"], a[href*="/prn/"]', { timeout: 8000 });
+                  await this.page.waitForSelector('div[class*="AddToCart"], a[href*="/prn/"]', waitOptions);
               } else if (this.platform === 'zepto') {
-                  await this.page.waitForSelector('[data-testid="product-card"], [data-testid="product-card-name"]', { timeout: 8000 });
+                  await this.page.waitForSelector('[data-testid="product-card"], [data-testid="product-card-name"]', waitOptions);
+              } else if (this.platform === 'bigbasket') {
+                  await this.page.waitForSelector('[qa="product_name"], [class*="ProductDeckStory"], .sku-card', waitOptions);
+              } else if (this.platform === 'instamart') {
+                  await this.page.waitForSelector('[data-testid="item-card-container"], [data-testid="item-name"]', waitOptions);
               }
           } else {
               // Puppeteer style waiting
@@ -330,13 +336,18 @@ export class CartAutomation {
               }
           }
       } else if (this.platform === 'zepto') {
-          productCards = await this.page.$$('[data-testid="product-card"]');
+          productCards = isProduction 
+              ? await this.page.locator('[data-testid="product-card"]').all()
+              : await this.page.$$('[data-testid="product-card"]');
       } else if (this.platform === 'instamart') {
-          productCards = await this.page.$$('[data-testid="item-card-container"]');
+          productCards = isProduction
+              ? await this.page.locator('[data-testid="item-card-container"]').all()
+              : await this.page.$$('[data-testid="item-card-container"]');
       } else {
           // BigBasket Selectors
-          productCards = await this.page.$$('[class*="ProductDeckStory"]'); 
-          if (productCards.length === 0) productCards = await this.page.$$('[qa="product_name"]');
+          productCards = isProduction
+              ? await this.page.locator('[qa="product_name"], [class*="ProductDeckStory"], .sku-card').all()
+              : await this.page.$$('[class*="ProductDeckStory"], [qa="product_name"]');
       }
 
       if (productCards.length === 0) {

@@ -233,10 +233,20 @@ const ShoppingListPage = () => {
       });
 
       if (response.data.success) {
-        const msg = response.data.manualRequired
-          ? `Instamart blocked automation. Please add items manually in the opened browser.`
-          : `Added ${response.data.itemsAdded} items to your ${platform} cart. Please complete checkout in the opened browser.`;
-        setNotice({ type: response.data.manualRequired ? 'error' : 'success', message: msg });
+        const cartUrl = platform === 'blinkit' ? 'https://blinkit.com' 
+                     : platform === 'zepto' ? 'https://www.zeptonow.com' 
+                     : platform === 'bigbasket' ? 'https://www.bigbasket.com/basket/?ver=1'
+                     : 'https://www.swiggy.com/instamart';
+
+        const msg = (
+            <span>
+                Added {response.data.itemsAdded} items to your {platform} cart. 
+                <a href={cartUrl} target="_blank" rel="noopener noreferrer" className="ml-2 underline font-bold">
+                    View Cart →
+                </a>
+            </span>
+        );
+        setNotice({ type: 'success', message: msg });
         setShowOrderModal(false);
       } else {
         setNotice({ type: 'error', message: 'Failed to add items to cart: ' + response.data.error });
