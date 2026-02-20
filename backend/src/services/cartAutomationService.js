@@ -347,8 +347,9 @@ export class CartAutomation {
 
       // BLINKIT SPECIFIC ADD LOGIC
       if (this.platform === 'blinkit') {
+          const isProductionLocal = isProduction; // Capture for inner scope
           const getBlinkitAddButton = async () => {
-              if (isProduction) {
+              if (isProductionLocal) {
                   const btn = this.page.locator('div[class*="AddToCart"], text=ADD').first();
                   return (await btn.count()) > 0 ? btn : null;
               }
