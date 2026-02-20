@@ -235,16 +235,6 @@ export class CartAutomation {
     } catch (e) {
       console.warn('[Cart] Failed to set browser permissions:', e.message);
     }
-
-    await this.page.setGeolocation({ latitude: 17.385044, longitude: 78.486671 });
-    await this.page.evaluateOnNewDocument(() => {
-        const originalQuery = window.navigator.permissions.query;
-        window.navigator.permissions.query = (parameters) => (
-            parameters.name === 'notifications' ?
-            Promise.resolve({ state: 'granted' }) :
-            originalQuery(parameters)
-        );
-    });
     
     console.log(`[Cart] Browser ready for ${this.platform}`);
   }
