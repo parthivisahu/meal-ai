@@ -255,6 +255,8 @@ export class CartAutomation {
   async searchAndAddToCart(itemName, quantity = 1) {
     try {
       console.log(`[Cart] Searching for: ${itemName}`);
+      
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
 
       const searchUrl = this.config.searchUrl(itemName);
       // Better waiting strategy for SPAs
