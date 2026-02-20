@@ -9,8 +9,9 @@ Meal-AI is a next-generation meal planning application that leverages cutting-ed
 ## 🚀 Features
 
 -   **🧠 AI-Powered Meal Generation:** Personalized weekly meal plans based on diet type (Veg, Non-Veg, Vegan, Eggetarian), budget, cooking time, and dietary restrictions.
--   **💰 Dynamic Price Comparison:** Automated web scraping of grocery platforms to find the best prices for your meal plan ingredients.
--   **🛒 Smart Shopping Cart:** Integrated cart system that translates meal plans into actionable shopping lists.
+- **💰 Dynamic Price Comparison:** Automated web scraping of grocery platforms to find the best prices for your meal plan ingredients.
+- **🔌 Browser Extension Support:** A companion browser extension to capture real-time prices from platforms like BigBasket, Blinkit, and Zepto while you browse.
+- **🛒 Smart Shopping Cart:** Integrated cart system that translates meal plans into actionable shopping lists.
 -   **🤖 Multi-Model Intelligence:** 
     -   **Llama 3.3 70B:** Primary engine for complex recipe reasoning.
     -   **DeepSeek R1:** Used for high-level logic and constraint solving.
@@ -100,6 +101,21 @@ npm run dev
 ```
 
 The application will be available at `http://localhost:5173` and the API at `http://localhost:5000`.
+
+## 🔌 Browser Extension (Price Capturing)
+
+Meal-AI includes support for a browser extension that captures real-time prices while you browse grocery sites.
+
+### Setup:
+1.  Locate the `extension.zip` in the `extensions/` directory (or use the source code if available).
+2.  Open Chrome and navigate to `chrome://extensions/`.
+3.  Enable **Developer mode** (top right toggle).
+4.  Drag and drop the `extension.zip` or click **Load unpacked** and select the extension folder.
+
+### Usage:
+-   The extension automatically detects product names and prices on supported platforms (BigBasket, Blinkit, Zepto).
+-   It sends this data to the `backend` via the `/api/price-comparison/ingest` endpoint.
+-   These real-time prices are then used by the Meal Planner to provide accurate budget estimates.
 
 ## 📂 Project Structure
 
