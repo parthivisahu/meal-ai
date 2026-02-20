@@ -214,13 +214,23 @@ export class CartAutomation {
     activeBrowser = this.browser;
 
     try {
-      if (this.page.context().overridePermissions) {
-          // Playwright style
-          await this.page.context().overridePermissions(this.config.baseUrl, ['geolocation', 'notifications']);
+      if (isProduction) {
+          // Playwright style permissions
+          await this.context.grantPermissions(['geolocation', 'notifications'], { origin: this.config.baseUrl });
       } else {
-          // Puppeteer style
+          // Puppeteer style permissions
           const context = this.browser.defaultBrowserContext();
           await context.overridePermissions(this.config.baseUrl, ['geolocation', 'notifications']);
+          
+          await this.page.setGeolocation({ latitude: 17.385044, longitude: 78.486671 });
+          await this.page.evaluateOnNewDocument(() => {
+              const originalQuery = window.navigator.permissions.query;
+              window.navigator.permissions.query = (parameters) => (
+                  parameters.name === 'notifications' ?
+                  Promise.resolve({ state: 'granted' }) :
+                  originalQuery(parameters)
+              );
+          });
       }
     } catch (e) {
       console.warn('[Cart] Failed to set browser permissions:', e.message);
