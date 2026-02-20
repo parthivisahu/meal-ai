@@ -284,14 +284,24 @@ export class CartAutomation {
 
       // Specific wait for product cards
       try {
-          if (this.platform === 'blinkit') {
-              await this.page.waitForSelector('div[class*="AddToCart"], a[href*="/prn/"]', { timeout: 8000 });
-          } else if (this.platform === 'zepto') {
-              await this.page.waitForSelector('[data-testid="product-card"], [data-testid="product-card-name"]', { timeout: 8000 });
-          } else if (this.platform === 'instamart') {
-              await this.page.waitForSelector('[data-testid="item-card-container"], [data-testid="item-name"]', { timeout: 8000 });
+          if (isProduction) {
+              // Playwright style waiting
+              if (this.platform === 'blinkit') {
+                  await this.page.waitForSelector('div[class*="AddToCart"], a[href*="/prn/"]', { timeout: 8000 });
+              } else if (this.platform === 'zepto') {
+                  await this.page.waitForSelector('[data-testid="product-card"], [data-testid="product-card-name"]', { timeout: 8000 });
+              }
           } else {
-              await this.page.waitForSelector('[qa="product_name"], [class*="ProductDeckStory"]', { timeout: 8000 });
+              // Puppeteer style waiting
+              if (this.platform === 'blinkit') {
+                  await this.page.waitForSelector('div[class*="AddToCart"], a[href*="/prn/"]', { timeout: 8000 });
+              } else if (this.platform === 'zepto') {
+                  await this.page.waitForSelector('[data-testid="product-card"], [data-testid="product-card-name"]', { timeout: 8000 });
+              } else if (this.platform === 'instamart') {
+                  await this.page.waitForSelector('[data-testid="item-card-container"], [data-testid="item-name"]', { timeout: 8000 });
+              } else {
+                  await this.page.waitForSelector('[qa="product_name"], [class*="ProductDeckStory"]', { timeout: 8000 });
+              }
           }
       } catch (e) {}
 
@@ -308,10 +318,12 @@ export class CartAutomation {
           }
           // Fallback: Text-based ADD button search
           if (productCards.length === 0) {
-              const addButtons = await this.page.$$("xpath///div[contains(text(), 'ADD')] | //button[contains(text(), 'ADD')]");
-              if (addButtons.length > 0) {
-                  console.log(`[Cart] Found ${addButtons.length} 'ADD' buttons via XPath.`);
-                  productCards = [addButtons[0]]; 
+              if (isProduction) {
+                  const addButtons = await this.page.locator('text=ADD').all();
+                  if (addButtons.length > 0) productCards = [addButtons[0]];
+              } else {
+                  const addButtons = await this.page.$$("xpath///div[contains(text(), 'ADD')] | //button[contains(text(), 'ADD')]");
+                  if (addButtons.length > 0) productCards = [addButtons[0]];
               }
           }
       } else if (this.platform === 'zepto') {
@@ -322,61 +334,11 @@ export class CartAutomation {
           // BigBasket Selectors
           productCards = await this.page.$$('[class*="ProductDeckStory"]'); 
           if (productCards.length === 0) productCards = await this.page.$$('[qa="product_name"]');
-          if (productCards.length === 0) productCards = await this.page.$$('div[class*="sku-card"]');
-          if (productCards.length === 0) productCards = await this.page.$$('li[class*="PaginateItems"]');
-          if (productCards.length === 0) productCards = await this.page.$$('div[class*="p-4"]'); 
-          // Extreme Fallback
-          if (productCards.length === 0) {
-              const headers = await this.page.$$('h3, h4');
-              if (headers.length > 5) productCards = headers;
-          }
       }
 
       if (productCards.length === 0) {
         console.log(`[Cart] ?? No products found for: ${itemName}`);
-        console.log(`[Cart] Debug - URL: ${this.page.url()}`);
-        if (this.platform === 'zepto' || this.platform === 'bigbasket') {
-          const clicked = await this._clickByTextOnPage(/add/i);
-          if (clicked) {
-            console.log(`[Cart] ? Added 1x ${itemName} via page-level Add.`);
-            this.cartItems.push({ name: itemName, quantity: 1, originalSearch: itemName });
-            return { success: true, item: itemName, quantity: 1 };
-          }
-        }
-
-        // Manual Location Intervention Logic
-        if ((this.platform === 'bigbasket' || this.platform === 'instamart' || this.platform === 'blinkit' || this.platform === 'zepto') && this.cartItems.length === 0 && !this.hasPausedForLocation) {
-             this.hasPausedForLocation = true;
-             console.log('\n[Cart] POSSIBLE LOCATION ISSUE DETECTED');
-             console.log('[Cart] The script will PAUSE for 45 seconds.');
-             console.log('[Cart] PLEASE MANUALLY SET YOUR LOCATION/ADDRESS IN THE BROWSER WINDOW NOW.');
-
-             await new Promise(r => setTimeout(r, 45000));
-
-             console.log('[Cart] Retrying search...');
-             await this.page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-             await new Promise(r => setTimeout(r, 4000));
-
-             // Quick re-check
-             if (this.platform === 'bigbasket') {
-                 productCards = await this.page.$$('h3, h4, [class*="ProductDeckStory"]');
-             } else if (this.platform === 'zepto') {
-                 productCards = await this.page.$$('[data-testid="product-card"], [data-testid="product-card-name"]');
-             } else if (this.platform === 'blinkit') {
-                 productCards = await this.page.$$('a[href*="/prn/"], [data-test-id="product-card"]');
-             } else {
-                 productCards = await this.page.$$('[data-testid="item-card-container"]');
-             }
-
-             if (productCards.length > 0) {
-                 console.log('[Cart] ? Location fixed! Products found.');
-             } else {
-                 console.log('[Cart] ? Still no products. Skipping item.');
-                 return { success: false, item: itemName, reason: 'Not found after manual fix' };
-             }
-        } else {
-             return { success: false, item: itemName, reason: 'Not found' };
-        }
+        return { success: false, item: itemName, reason: 'Not found' };
       }
 
       const firstProduct = await this._pickBestProductCard(itemName, productCards) || productCards[0];
@@ -384,6 +346,10 @@ export class CartAutomation {
       // BLINKIT SPECIFIC ADD LOGIC
       if (this.platform === 'blinkit') {
           const getBlinkitAddButton = async () => {
+              if (isProduction) {
+                  const btn = this.page.locator('div[class*="AddToCart"], text=ADD').first();
+                  return (await btn.count()) > 0 ? btn : null;
+              }
               let btn = await this.page.$('div[class*="AddToCart"]');
               if (btn) return btn;
               const xpathButtons = await this.page.$$("xpath///div[contains(text(),'ADD')] | //button[contains(text(),'ADD')]");
@@ -393,37 +359,14 @@ export class CartAutomation {
 
           let addButton = await getBlinkitAddButton();
           if (addButton) {
-              try {
-                  const btnText = await this.page.evaluate(el => el.innerText, addButton);
-                  if (btnText && (btnText.includes('+') || !isNaN(parseInt(btnText)))) {
-                       console.log(`[Cart] Item '${itemName}' already in cart.`);
-                       return { success: true, item: itemName, quantity: 0, status: 'already_in_cart' };
-                  }
-              } catch (e) {}
-
               for (let i = 0; i < quantity; i++) {
-                let clicked = false;
-                for (let attempt = 0; attempt < 2 && !clicked; attempt++) {
-                  const btn = await getBlinkitAddButton();
-                  if (!btn) break;
-                  try {
-                    await this.page.evaluate(el => el.click(), btn);
-                    clicked = true;
-                  } catch (e) {
-                    if (e.message.includes('detached')) {
-                      await new Promise(r => setTimeout(r, 500));
-                    } else {
-                      throw e;
-                    }
-                  }
-                }
-                if (clicked) {
-                  console.log(`[Cart] Clicked Add (${i + 1}/${quantity})`);
-                  await new Promise(r => setTimeout(r, 1200));
+                if (isProduction) {
+                    await addButton.click();
                 } else {
-                  console.log(`[Cart] ?? Add button unavailable for: ${itemName}`);
-                  break;
+                    await this.page.evaluate(el => el.click(), addButton);
                 }
+                console.log(`[Cart] Clicked Add (${i + 1}/${quantity})`);
+                await new Promise(r => setTimeout(r, 1200));
               }
               console.log(`[Cart] ? Added ${quantity}x ${itemName}`);
               this.cartItems.push({ name: itemName, quantity, originalSearch: itemName });
