@@ -384,7 +384,8 @@ export class CartAutomation {
             if (i === 0) {
               if (addButton) {
                 try {
-                  await addButton.click();
+                  if (isProduction) await addButton.click();
+                  else await addButton.click();
                   clicked = true;
                 } catch (e) {}
               }
@@ -400,7 +401,6 @@ export class CartAutomation {
                 } catch (e) {}
               }
               if (!clicked) clicked = await this._clickByTextInHandle(firstProduct, /increase|increment|\+/i);
-              if (!clicked) clicked = await this._clickByTextOnPage(/increase|increment|\+/i);
             }
 
             if (!clicked) {
@@ -417,7 +417,11 @@ export class CartAutomation {
           return { success: true, item: itemName, quantity };
       } else if (this.platform === 'instamart') {
           let addButton = await firstProduct.$('[data-testid="item-add-button"]');
-          if (!addButton) {
+          if (!addButton && isProduction) {
+              const loc = this.page.locator('button:has-text("Add"), button:has-text("ADD")').first();
+              if (await loc.count() > 0) addButton = loc;
+          }
+          if (!addButton && !isProduction) {
             const [xpathBtn] = await this.page.$$("xpath///button[contains(text(),\"Add\")] | //button[contains(text(),\"ADD\")]");
             if (xpathBtn) addButton = xpathBtn;
           }
@@ -443,7 +447,11 @@ export class CartAutomation {
       }
 
       let addButton = await firstProduct.$('button[qa="add"]');
-      if (!addButton) {
+      if (!addButton && isProduction) {
+          const loc = this.page.locator('button:has-text("Add"), button:has-text("ADD")').first();
+          if (await loc.count() > 0) addButton = loc;
+      }
+      if (!addButton && !isProduction) {
         const [xpathBtn] = await this.page.$$("xpath///button[contains(text(),\"Add\")] | //button[contains(text(),\"ADD\")]");
         if (xpathBtn) addButton = xpathBtn;
       }
